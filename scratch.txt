@@ -1,0 +1,58 @@
+15 potential registers + 1 pseudoregister
+load-store
+little endian
+
+16b:
+a
+b
+c
+s
+r
+
+8b:
+x
+ah
+al
+bl
+cl 
+
+pseudo: 1111
+next byte/word
+program counter + 2
+
+flags:
+
+
+
+mov
+000esxyz ctlbyte
+copy source to dest
+
+bit 0 is offsetting
+bit 1 is source indir
+bit 2 is dest indir
+bit 3 is sign extension
+bit 4 is zero extension
+sign extension takes priority if present
+high nibble of ctlbyte is source
+low nibble is dest
+direct destination on the pseudoregister is illegal
+double pseudoregister is illegal
+s is sign, applies when moving to a different sized register
+
+
+xcg
+100esxyz ctlbyte
+bit 0 is offsetting
+bit 1 is source indir
+bit 2 is dest indir
+bit 3 is sign extension
+bit 4 is zero extension
+sign extension takes priority if present
+swap source and dest
+direct with src or dest as pseudoregister is illegal
+double pseudoregister is illegal
+s is sign, applies when moving to a different sized register
+
+
+
