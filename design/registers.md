@@ -1,18 +1,29 @@
 # registers
 
 GPRs
-- a, ah and al
-- b, bh and bl
-- c and cl
-- d and dl
+- a
+- ah
+- al
+- b
+- bh
+- bl
+- c
+- cl
+- d
+- dl
 
 segments
 - cs
 - ds
-- es
 - ss
 
+pointers
+- sp
+- ip
+- dp
+
 special purpose
+- pc
 - idtp
 - idtl
 - flags
@@ -20,15 +31,17 @@ special purpose
 
 ## flags register
 
+16 bit
 contains
-- privilege
-- dseg active
-- overflow
-- carry
-- negative
+- privilege (0)
+- dseg active (1)
+- overflow (2)
+- carry (3)
+- negative (4)
 
 
 # register encoding
 
-operand values are 7 bit, with bit 7 clear
+operand values are 7 bit
+
 

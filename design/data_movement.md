@@ -3,19 +3,15 @@ TODO: stack
 ## mov
 internal movement only
 
-`1xxx_xxre [src [dest]]`
+`1000_000e [src [dest]]`
 e is extension mode, used when moving to a bigger register
     when clear, zero extend
     when set, sign extend
-r is reverse
-    when clear, copy from src to dest
-    when set, copy from dest to src
-    allows moving to a to get optimised slightly
 
 if operands are left unspecified, %a is used
 
 
-## swpr
+## swr
 atomically swap data internally
 
 `1xxx_xxxx [src [dest]]`
@@ -28,8 +24,8 @@ if operands are left unspecified, %a is used
 ## ld
 load from memory into a register
 
-`1xxx_aoss dest addr [offset]`
-ss is segment selector
+`1001_0sao dest addr [offset]`
+s is segment selector
 a is constant address
     when clear, use a register for address
     when set, use a 16 bit value from memory
@@ -39,10 +35,10 @@ o is constant offset
 value size is determined by reg size
 
 
-## const
+## cns
 load a constant into a register
 
-`1xxx_xxxx [dest [val]]`
+`1000_0010 [dest [val]]`
 if dest is not present, %a is used
 if val is not present, 0 is used
 
@@ -50,8 +46,8 @@ if val is not present, 0 is used
 ## st
 store from a register into memory
 
-`1xxx_aoss src addr [offset]`
-ss is segment selector
+`1010_0sao src addr [offset]`
+s is segment selector
 a is constant address
     when clear, use a register for address
     when set, use a 16 bit value from memory
@@ -61,11 +57,11 @@ o is constant offset
 value size is determined by reg size
 
 
-## swpm
+## swm
 atomically swap data in a register and a memory location
 
-`1xxx_aoss src addr [offset]`
-ss is segment selector
+`1011_0sao src addr [offset]`
+s is segment selector
 a is constant address
     when clear, use a register for address
     when set, use a 16 bit value from memory
@@ -73,4 +69,23 @@ o is constant offset
     as above
 
 value size is determined by reg size
+
+
+## push
+push a value to the stack
+
+`1000_0100 [src]`
+value size is determined by reg size
+
+store the value in src at ss:sp
+decrement sp by the width of src in bytes
+
+## pop
+pop a value from the stack
+
+`1000_0100 [dest]`
+value size is determined by reg size
+
+load the value at ss:sp into dest
+increment sp by the width of dest in bytes
 
