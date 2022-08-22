@@ -34,9 +34,32 @@ if addr is not present, %a is used
 ## call
 function call
 
-`1110_001c [addr]`
+`1010_100c [addr]`
 if c is high, addr is a constant value
 if addr is not present, %a is used
 
-pushes the address of the next instruction to the stack, then jumps
+moves the address of the next instruction to %rp, then jumps
+
+## lcall
+long call
+
+`1010_101c addr segment`
+if c is high, addr and segment are constant values
+
+moves the address of the next instruction to %rp, moves %cs to %rop, then jumps
+
+
+## ret
+function return
+
+`1110_0100`
+
+moves %rp to %pc
+
+## lret
+long return
+
+`1110_001`
+
+moves %rp to %pc and moves %rop to %cs
 

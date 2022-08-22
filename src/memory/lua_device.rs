@@ -1,4 +1,4 @@
-use hlua::{Lua, LuaFunction, LuaTable};
+use hlua::{Lua, LuaFunction};
 use super::{DevMsg, Device};
 
 pub struct LuaDevice<'a> {
@@ -16,8 +16,9 @@ impl<'a> LuaDevice<'a> {
     }
 }
 impl Device for LuaDevice<'_> {
-    fn write(&mut self, val: u8, offset: usize) -> DevMsg { DevMsg::None }
-    fn read(&mut self, offset: usize) -> u8 { 0 }
+    fn write(&mut self, val: u8, offset: u32, range: u32) {}
+    fn write16(&mut self, val: [u8; 2], offset: u32, range: u32) {}
+    fn read(&mut self, offset: u32, range: u32) -> u8 { 0 }
+    fn read16(&mut self, offset: u32, range: u32) -> [u8; 2] { [0, 0] }
     fn clock(&mut self) -> DevMsg { DevMsg::None }
-    
 }

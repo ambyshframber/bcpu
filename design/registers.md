@@ -13,14 +13,14 @@ GPRs
 - dl
 
 segments
-- cs
-- ds
-- ss
+- cs (code segment)
+- ds (data segment)
+- ss (stack segment)
 
 pointers
-- sp
-- ip
-- dp
+- sp (stack pointer)
+- ip (index pointer)
+- dp (destination pointer)
 
 special purpose
 - pc
@@ -33,11 +33,11 @@ special purpose
 
 16 bit
 contains
-- privilege (0)
-- dseg active (1)
-- overflow (2)
+- privilege (0 and 1)
+- dseg active (2)
 - carry (3)
 - negative (4)
+- overflow (5)
 
 
 # register encoding

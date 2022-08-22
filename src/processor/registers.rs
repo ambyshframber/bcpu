@@ -1,0 +1,34 @@
+pub enum GPRs {
+    A	= 0x00,
+    AL	= 0x02,
+    AH	= 0x03,
+    
+    B	= 0x04,
+    BL	= 0x06,
+    BH	= 0x07,
+
+    C	= 0x08,
+    CL	= 0x0a,
+
+    D	= 0x0c,
+    DL	= 0x0e,
+}
+pub enum Ptrs {
+    SP  = 0x10,
+    IP  = 0x12,
+    DP  = 0x14,
+
+    RP  = 0x18,
+    ROP = 0x1a,
+}
+pub enum Segs {
+    CS  = 0x20,
+    DS  = 0x22,
+    SS  = 0x24,
+}
+pub enum Spec {
+    IDTP    = 0x40,
+    IDTL    = 0x42,
+    PC      = 0x44,
+    FLAGS   = 0x46
+}
