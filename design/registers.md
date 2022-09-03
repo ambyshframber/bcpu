@@ -13,14 +13,18 @@ GPRs
 - dl  
   
 segments  
-- cs (code segment)  
-- ds (data segment)  
-- ss (stack segment)  
+- co (code offset)  
+- do (data offset)  
+- eo (extra data offset)  
+- so (stack offset)  
   
 pointers  
 - sp (stack pointer)  
-- ip (index pointer)  
-- dp (destination pointer)  
+- bp (base/frame pointer)  
+- si (source index)  
+- di (destination index)  
+- rp (return pointer)  
+- rop (return offset pointer)  
   
 special purpose  
 - pc  

@@ -13,3 +13,6 @@ struct Computer {
     memory_map: MemoryMap,
     processor: Processor
 }
+impl Computer {
+    
+}

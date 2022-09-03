@@ -48,16 +48,20 @@ impl Device for RustMemory {
         }
     }
     fn read(&mut self, offset: u32, _range: u32) -> u8 {
-        if !self.init { self.init() }
-        unsafe {
-            *self.mem.offset(offset as isize)
+        if !self.init { 0 }
+        else {
+            unsafe {
+                *self.mem.offset(offset as isize)
+            }
         }
     }
     fn read16(&mut self, offset: u32, _range: u32) -> [u8; 2] {
-        if !self.init { self.init() }
-        let ofs = offset as isize;
-        unsafe {
-            [*self.mem.offset(ofs), *self.mem.offset(ofs + 1)]
+        if !self.init { [0; 2] }
+        else {
+            let ofs = offset as isize;
+            unsafe {
+                [*self.mem.offset(ofs), *self.mem.offset(ofs + 1)]
+            }
         }
     }
 }

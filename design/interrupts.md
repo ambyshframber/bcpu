@@ -8,9 +8,12 @@ further interrupts can be triggered with the int instruction
   
 ## list of cpu-triggered interrupts  
   
-- illegal opcode (IOP)  
+- invalid operation (IOP)  
     - 0x00  
-    - triggered when the cpu tries to execute a byte that is not a valid instruction  
+    - triggered when:
+        - the cpu tries to execute a byte that is not a valid instruction
+        - the cpu tries to access a register that does not exist  
+        - the cpu tries to move from a larger register to a smaller one
 - illegal instruction (IIN)  
     - 0x01  
     - triggered when the cpu executes an instruction that it is in the wrong privilege level for  

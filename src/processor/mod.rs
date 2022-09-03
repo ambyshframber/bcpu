@@ -1,27 +1,33 @@
-mod registers;
-#[cfg(test)]
+use std::mem::size_of;
+use regval::RegVal;
+
+mod consts;
+mod regval;
 mod tests;
 
-const TOTAL_REGISTER_LENGTH: usize = 32;
+const GPRS_LEN: usize = 4 * size_of::<u32>();
+const POINTERS_LEN: usize = 4 * size_of::<u32>() + 1;
+const SEGMENTS_LEN: usize = 4;
+const SPECIAL_LEN: usize = 4 * size_of::<u32>();
 
-const fn get_register_offset(regid: u8) -> Option<(usize, bool)> {
-    if regid < 0x10 { // GPR
-        if regid == 0x03 {
-            return Some((1, true))
-        }
-        if regid == 0x07 {
-            return Some((5, true))
-        }
-        else {
-            return Some(((regid & !0b11) as usize, regid & 0b11 != 0))
-        }
+pub struct Registers {
+    gprs: [u8; GPRS_LEN],
+    pointers: [u8; POINTERS_LEN],
+    segments: [u8; SEGMENTS_LEN],
+    special: [u8; SPECIAL_LEN],
+}
+impl Registers {
+    pub fn read(&self, regid: u8) -> Option<RegVal> {
+        unimplemented!()
     }
-    if regid < 0x20 { // pointer
-        
+    pub fn write(&self, regid: u8, val: u32) {
+        unimplemented!()
     }
-    None
 }
 
 pub struct Processor {
-    registers: [u8; TOTAL_REGISTER_LENGTH], // all data in addressable registers. multibyte registers are stored little endian
+    registers: Registers,
+}
+impl Processor {
+    
 }
