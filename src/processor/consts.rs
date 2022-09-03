@@ -25,7 +25,7 @@ pub enum Ptrs {
     RP  = 0x18,
     ROP = 0x1a,
 }
-pub enum Segs {
+pub enum Offs {
     CO  = 0x20,
     DO  = 0x21,
     EO  = 0x22,

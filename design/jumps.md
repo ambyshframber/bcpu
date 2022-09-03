@@ -46,7 +46,7 @@ long call
 `1010_101c addr segment`  
 if c is high, addr and segment are constant values  
   
-moves the address of the next instruction to %rp, moves %cs to %rop, then jumps  
+moves the address of the next instruction to %rp, moves %co to %rop, then jumps  
   
   
 ## ret  
@@ -61,6 +61,6 @@ long return
   
 `1110_001`  
   
-moves %rp to %pc and moves %rop to %cs  
+moves %rp to %pc and moves %rop to %co  
   
   
