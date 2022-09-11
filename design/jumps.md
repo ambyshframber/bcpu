@@ -4,30 +4,20 @@
 ## jmp  
 unconditional jump  
   
-`1000_100c [addr]`  
-if c is high, addr is a constant value  
+`1000_1000 [addr]`  
 if addr is not present, %a is used  
   
   
 ## jz  
-jump if zero flag zet  
+jump if zero flag set  
   
-`1000_101c [addr]`  
-if c is high, addr is a constant value  
+`1000_1001 [addr]`  
 if addr is not present, %a is used  
+
+## jnz  
+jump if zero flag clear  
   
-## jc  
-jump if carry flag set  
-  
-`1000_110c [addr]`  
-if c is high, addr is a constant value  
-if addr is not present, %a is used  
-  
-## jo  
-jump if overflow flag set  
-  
-`1000_111c [addr]`  
-if c is high, addr is a constant value  
+`1000_1010 [addr]`  
 if addr is not present, %a is used  
   
   

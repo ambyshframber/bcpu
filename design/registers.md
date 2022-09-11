@@ -12,7 +12,7 @@ GPRs
 - d  
 - dl  
   
-segments  
+offsets (16 bit)  
 - co (code offset)  
 - do (data offset)  
 - eo (extra data offset)  
@@ -31,17 +31,29 @@ special purpose
 - idtp  
 - idtl  
 - flags  
+
+pseudo-consts  
+- byte
+- word
+
+## pseudo-consts
+
+retrieves a value from the text  
+`opcode byte VAL` or `opcode word VAL VAL`  
+allows orthogonal constants
   
   
 ## flags register  
   
 16 bit  
 contains  
-- privilege (0 and 1)  
-- dseg active (2)  
-- carry (3)  
-- negative (4)  
-- overflow (5)  
+- carry (0)  
+- negative (1)  
+- overflow (2)
+- zero (3)
+- test (4)  
+- dseg active (5)  
+- privilege (6 and 7)  
   
   
 # register encoding  

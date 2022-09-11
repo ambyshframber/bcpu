@@ -32,12 +32,8 @@ pub enum Offs {
     SO  = 0x23,
 }
 pub enum Spec {
-    IDTP    = 0x40,
-    IDTL    = 0x42,
-    PC      = 0x44,
-    FLAGS   = 0x46
-}
-
-pub enum Interrupts {
-    
+    IDTP    = 0x28,
+    IDTL    = 0x2a,
+    PC      = 0x2c,
+    FLAGS   = 0x2e
 }

@@ -1,3 +1,5 @@
+#![feature(result_flattening)]
+
 use memory::MemoryMap;
 use processor::Processor;
 

@@ -24,23 +24,10 @@ if operands are left unspecified, %a is used
 ## ld  
 load from memory into a register  
   
-`1001_0sao dest addr [offset]`  
+`1001_000s dest addr [offset]`  
 s is segment selector  
-a is constant address  
-    when clear, use a register for address  
-    when set, use a 16 bit value from memory  
-o is constant offset  
-    as above  
   
 value size is determined by reg size  
-  
-  
-## cns  
-load a constant into a register  
-  
-`1000_0010 [dest [val]]`  
-if dest is not present, %a is used  
-if val is not present, 0 is used  
   
   
 ## st  
@@ -48,11 +35,6 @@ store from a register into memory
   
 `1010_0sao src addr [offset]`  
 s is segment selector  
-a is constant address  
-    when clear, use a register for address  
-    when set, use a 16 bit value from memory  
-o is constant offset  
-    as above  
   
 value size is determined by reg size  
   
@@ -62,11 +44,6 @@ atomically swap data in a register and a memory location
   
 `1011_0sao src addr [offset]`  
 s is segment selector  
-a is constant address  
-    when clear, use a register for address  
-    when set, use a 16 bit value from memory  
-o is constant offset  
-    as above  
   
 value size is determined by reg size  
   

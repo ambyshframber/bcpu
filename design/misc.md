@@ -4,9 +4,9 @@
 used to perform checks on integer values  
   
 `1111_0000`  
-if the next instruction is an arithmetic instruction, run it but do not store the result back to a register.  
+if the next instruction is not a jump, run it but do not store the result back to a register.  
 flags are modified.  
-if the next instruction is not arithmetic, throw an illegal instruction interrupt.  
+if the next instruction is a jump, throw an illegal instruction interrupt.  
   
 ## int  
 trigger an interrupt  
