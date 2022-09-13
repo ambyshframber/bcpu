@@ -1,4 +1,7 @@
 #![feature(result_flattening)]
+#![feature(exclusive_range_pattern)]
+#![feature(bigint_helper_methods)]
+#![feature(type_name_of_val)]
 
 use memory::MemoryMap;
 use processor::Processor;

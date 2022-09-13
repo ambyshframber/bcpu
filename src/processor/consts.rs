@@ -1,3 +1,19 @@
+pub const GPR_MASK: u8 = 0b1100;
+pub const GPR_SEL_MASK: u8 = 0b11;
+pub const PTR_MASK: u8 = 0b1110;
+pub const PTR_SEL_MASK: u8 = 0b1;
+pub const SPEC_MASK: u8 = 0b110;
+pub const SPEC_SEL_MASK: u8 = 0b1;
+
+pub const CARRY_MASK: u32    = 0b0000_0000_0000_0001;
+pub const NEGATIVE_MASK: u32 = 0b0000_0000_0000_0010;
+pub const OVERFLOW_MASK: u32 = 0b0000_0000_0000_0100;
+pub const ZERO_MASK: u32     = 0b0000_0000_0000_1000;
+pub const TEST_MASK: u32     = 0b0000_0000_0001_0000;
+pub const DSEG_MASK: u32     = 0b0000_0000_0010_0000;
+pub const PRIV_MASK: u32     = 0b0000_0000_1100_0000;
+pub const MODE32_MASK: u32   = 0b0000_0001_0000_0000;
+
 pub enum GPRs {
     A	= 0x00,
     XA	= 0x01,
@@ -19,10 +35,16 @@ pub enum GPRs {
 }
 pub enum Ptrs {
     SP  = 0x10,
-    SI  = 0x12,
-    DI  = 0x14,
+    XSP  = 0x11,
+    BP  = 0x12,
+    XBP  = 0x13,
+    SI  = 0x14,
+    XSI  = 0x15,
+    DI  = 0x16,
+    XDI  = 0x17,
 
     RP  = 0x18,
+    XRP  = 0x19,
     ROP = 0x1a,
 }
 pub enum Offs {

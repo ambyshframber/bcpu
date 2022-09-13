@@ -1,46 +1,60 @@
 use crate::utils::*;
 use super::*;
+use std::any::type_name_of_val;
 
 #[derive(Debug, PartialEq)]
 pub struct FlagUpdate {
     pub carry: bool,
-    pub overflow: bool
+    pub negative: bool,
+    pub overflow: bool,
+    pub zero: bool,
 }
 impl FlagUpdate {
-    pub fn new(carry: bool, overflow: bool) -> FlagUpdate {
-        Self {
-            carry, overflow
-        }
+    pub fn new(carry: bool, overflow: bool, val: RegVal) -> FlagUpdate {
+        let negative = val.is_negative();
+        let zero = val.is_zero();
+        FlagUpdate { carry, negative, overflow, zero }
+    }
+    pub fn update_reg(self, old: u32) -> u32 {
+        let mut flags = 0;
+        flags |= self.carry as u32;
+        flags |= (self.negative as u32) << 1;
+        flags |= (self.overflow as u32) << 2;
+        flags |= (self.zero as u32) << 3;
+
+        (old & !0xf) | flags
     }
 }
 
 macro_rules! add {
-    ($width:ty, $fn_x:ident, $mask:expr, $variant:ident, $val:ident, $rhs:ident, $carry:ident) => {
+    ($width:ty, $fn_x:ident, $variant:ident, $val:ident, $rhs:ident, $carry:ident) => {
         {
-            let hi_pre = ($val & $mask);
+            let hi_pre = $val.top_bit();
             let rhs = $rhs.$fn_x()?;
-            let new = $val.wrapping_add(rhs).wrapping_add($carry as $width);
-            let hi_post = new & $mask;
+            let (new, carry) = $val.carrying_add(rhs, $carry);
+            let hi_post = new.top_bit();
 
-            let carry = new <= $val;
             let overflow = hi_pre != hi_post;
+
+            let val = RegVal::$variant(new);
         
-            Some((RegVal::$variant(new), FlagUpdate::new(carry, overflow)))
+            Some((val, FlagUpdate::new(carry, overflow, val)))
         }
     };
 }
 macro_rules! sub {
-    ($width:ty, $fn_x:ident, $mask:expr, $variant:ident, $val:ident, $rhs:ident, $carry:ident) => {
+    ($width:ty, $fn_x:ident, $variant:ident, $val:ident, $rhs:ident, $carry:ident) => {
         {
-            let hi_pre = ($val & $mask);
+            let hi_pre = $val.top_bit();
             let rhs = $rhs.$fn_x()?;
-            let new = $val.wrapping_sub(rhs).wrapping_sub(!$carry as $width);
-            let hi_post = new & $mask;
+            let (new, borrow) = $val.borrowing_sub(rhs, !$carry);
+            let hi_post = new.top_bit();
 
-            let carry = !(new >= $val);
             let overflow = hi_pre != hi_post;
+
+            let val = RegVal::$variant(new);
         
-            Some((RegVal::$variant(new), FlagUpdate::new(carry, overflow)))
+            Some((val, FlagUpdate::new(!borrow, overflow, val)))
         }
     };
 }
@@ -50,13 +64,13 @@ macro_rules! one_output {
         pub fn $name(self, rhs: RegVal, carry: bool) -> Option<(RegVal, FlagUpdate)> {
             match self {
                 Self::Byte(b) => {
-                    $name!(u8, unwrap_u8, 0x80, Byte, b, rhs, carry)
+                    $name!(u8, unwrap_u8, Byte, b, rhs, carry)
                 }
                 Self::Word(w) => {
-                    $name!(u16, unwrap_u16, 0x80_00, Word, w, rhs, carry)
+                    $name!(u16, unwrap_u16, Word, w, rhs, carry)
                 }
                 Self::Dword(d) => {
-                    $name!(u32, unwrap_u32, 0x80_00_00_00, Dword, d, rhs, carry)
+                    $name!(u32, unwrap_u32, Dword, d, rhs, carry)
                 }
             }
         }
@@ -64,35 +78,42 @@ macro_rules! one_output {
 }
 
 macro_rules! mul {
-    ($width:ty, $width_s:ty, $mul_width:ty, $split_width:ty, $fn_x:ident, $val:ident, $rhs:ident, $variant:ident) => {
+    ($width:ty, $width_s:ty, $fn_x:ident, $val:ident, $rhs:ident, $variant:ident) => {
         {
-            let lhs = $val as $width_s as $mul_width;
-            let rhs = $rhs.$fn_x()? as $width_s as $mul_width;
+            let lhs = $val as $width_s;
+            let rhs = $rhs.$fn_x()? as $width_s;
 
-            let new = (lhs * rhs) as $split_width;
-            let (lo, hi) = new.half_split();
+            let (lo, hi) = lhs.widening_mul(rhs);
             let lo_wrap = RegVal::$variant(lo);
             let hi_wrap = RegVal::$variant(hi);
             let overflow = hi != 0;
-            let flags = FlagUpdate::new(false, overflow);
+            let flags = FlagUpdate {
+                overflow,
+                carry: false,
+                negative: hi_wrap.is_negative(),
+                zero: hi_wrap.is_zero() && lo_wrap.is_zero()
+            };
             Some(((lo_wrap, hi_wrap), flags))
         }
     };
 }
-macro_rules! mul_fn {
-    ($name:ident, $width_s:ty, $mul_width:ty) => {
-        pub fn $name(self, rhs: RegVal, carry: bool) -> Option<((RegVal, RegVal), FlagUpdate)> {
-            match self {
-                Self::Byte(b) => {
-                    mul!(u8, $width_s, $mul_width, u16, unwrap_u8, b, rhs, Byte)
-                }
-                Self::Word(w) => {
-                    mul!(u16, $width_s, $mul_width, u32, unwrap_u16, w, rhs, Word)
-                }
-                Self::Dword(d) => {
-                    mul!(u32, $width_s, $mul_width, u64, unwrap_u32, d, rhs, Dword)
-                }
-            }
+macro_rules! div {
+    ($width_s:ty, $fn_x:ident, $val:ident, $val_hi:ident, $rhs:ident) => {
+        {
+            let lhs_lo = $val;
+            let lhs_hi = $val_hi.$fn_x()?;
+            let lhs = <$width_s>::merge(lhs_lo, lhs_hi);
+            let rhs = $rhs.$fn_x()? as $width_s;
+            let quot: RegVal = (lhs / rhs).half_split().0.into();
+            let rem: RegVal = (lhs % rhs).half_split().0.into();
+            let zero = rem.is_zero();
+            let negative = quot.is_negative();
+            let flags = FlagUpdate {
+                zero, negative,
+                overflow: false,
+                carry: false
+            };
+            Some(((quot, rem), flags))
         }
     };
 }
@@ -213,26 +234,53 @@ impl RegVal {
     pub fn mul(self, rhs: RegVal) -> Option<((RegVal, RegVal), FlagUpdate)> {
         match self {
             Self::Byte(b) => {
-                mul!(u8, u8, u16, u16, unwrap_u8, b, rhs, Byte)
+                mul!(u8, u8, unwrap_u8, b, rhs, Byte)
             }
             Self::Word(w) => {
-                mul!(u16, u16, u32, u32, unwrap_u16, w, rhs, Word)
+                mul!(u16, u16, unwrap_u16, w, rhs, Word)
             }
             Self::Dword(d) => {
-                mul!(u32, u32, u64, u64, unwrap_u32, d, rhs, Dword)
+                mul!(u32, u32, unwrap_u32, d, rhs, Dword)
             }
         }
     }
     pub fn imul(self, rhs: RegVal) -> Option<((RegVal, RegVal), FlagUpdate)> {
         match self {
             Self::Byte(b) => {
-                mul!(u8, i8, i16, u16, unwrap_u8, b, rhs, Byte)
+                mul!(u8, i8, unwrap_u8, b, rhs, Byte)
             }
             Self::Word(w) => {
-                mul!(u16, i16, i32, u32, unwrap_u16, w, rhs, Word)
+                mul!(u16, i16, unwrap_u16, w, rhs, Word)
             }
             Self::Dword(d) => {
-                mul!(u32, i32, i64, u64, unwrap_u32, d, rhs, Dword)
+                mul!(u32, i32, unwrap_u32, d, rhs, Dword)
+            }
+        }
+    }
+
+    pub fn div(self, hi: RegVal, rhs: RegVal) -> Option<((RegVal, RegVal), FlagUpdate)> {
+        match self {
+            Self::Byte(v) => {
+                div!(u16, unwrap_u8, v, hi, rhs)
+            }
+            Self::Word(v) => {
+                div!(u32, unwrap_u16, v, hi, rhs)
+            }
+            Self::Dword(v) => {
+                div!(u64, unwrap_u32, v, hi, rhs)
+            }
+        }
+    }
+    pub fn idiv(self, hi: RegVal, rhs: RegVal) -> Option<((RegVal, RegVal), FlagUpdate)> {
+        match self {
+            Self::Byte(v) => {
+                div!(i16, unwrap_u8, v, hi, rhs)
+            }
+            Self::Word(v) => {
+                div!(i32, unwrap_u16, v, hi, rhs)
+            }
+            Self::Dword(v) => {
+                div!(i64, unwrap_u32, v, hi, rhs)
             }
         }
     }
@@ -258,29 +306,67 @@ mod tests {
     fn add_sub() {
         let lhs = RegVal::Byte(20);
         let rhs = RegVal::Byte(30);
-        assert_eq!(lhs.add(rhs, false), Some((RegVal::Byte(50), FlagUpdate::new(false, false))));
+        let res = RegVal::Byte(50);
+        assert_eq!(lhs.add(rhs, false), Some((res, FlagUpdate::new(false, false, res))));
 
         let lhs = RegVal::Byte(20);
         let rhs = RegVal::Byte(30);
-        assert_eq!(lhs.add(rhs, true), Some((RegVal::Byte(51), FlagUpdate::new(false, false))));
+        let res = RegVal::Byte(51);
+        assert_eq!(lhs.add(rhs, true), Some((res, FlagUpdate::new(false, false, res))));
 
         let lhs = RegVal::Byte(30);
         let rhs = RegVal::Byte(-20i8 as u8);
-        assert_eq!(lhs.add(rhs, false), Some((RegVal::Byte(10), FlagUpdate::new(true, false))));
+        let res = RegVal::Byte(10);
+        assert_eq!(lhs.add(rhs, false), Some((RegVal::Byte(10), FlagUpdate::new(true, false, res))));
         let lhs = RegVal::Byte(20);
         let rhs = RegVal::Byte(-30i8 as u8);
-        assert_eq!(lhs.add(rhs, false), Some((RegVal::Byte(-10i8 as u8), FlagUpdate::new(false, true))));
+        let res = RegVal::Byte(-10i8 as u8);
+        assert_eq!(lhs.add(rhs, false), Some((RegVal::Byte(-10i8 as u8), FlagUpdate::new(false, true, res))));
 
         let lhs = RegVal::Byte(30);
         let rhs = RegVal::Byte(20);
-        assert_eq!(lhs.sub(rhs, true), Some((RegVal::Byte(10), FlagUpdate::new(true, false))));
+        let res = RegVal::Byte(10);
+        assert_eq!(lhs.sub(rhs, true), Some((RegVal::Byte(10), FlagUpdate::new(true, false, res))));
     }
 
     #[test]
     fn mul() {
         let lhs = RegVal::Byte(-0x12i8 as u8);
         let rhs = RegVal::Byte(0x34);
-        assert_eq!(lhs.imul(rhs), Some(((RegVal::Byte(0x58), RegVal::Byte(0xfc)), FlagUpdate::new(false, true))));
+        assert_eq!(lhs.imul(rhs), Some(((RegVal::Byte(0x58), RegVal::Byte(0xfc)), FlagUpdate{
+            carry: false,
+            zero: false,
+            negative: true,
+            overflow: true
+        })));
+    }
+
+    #[test]
+    fn div() {
+        let lhs_lo = RegVal::Byte(0x34);
+        let lhs_hi = RegVal::Byte(0x12);
+        let rhs = RegVal::Byte(0x56);
+        let div_res = lhs_lo.div(lhs_hi, rhs);
+        let correct = Some((
+            (RegVal::Byte(0x36), RegVal::Byte(0x10)),
+            FlagUpdate {
+                carry: false, overflow: false, zero: false, negative: false
+            }
+        ));
+        assert_eq!(div_res, correct);
+
+        let (lo, hi) = (-0x1234i16 as u16).half_split();
+        let lhs_lo: RegVal = lo.into();
+        let lhs_hi = hi.into();
+        let rhs = RegVal::Byte(0x56);
+        let div_res = lhs_lo.idiv(lhs_hi, rhs);
+        let correct = Some((
+            (RegVal::Byte(0xca), RegVal::Byte(0xf0)),
+            FlagUpdate {
+                carry: false, overflow: false, zero: false, negative: true
+            }
+        ));
+        assert_eq!(div_res, correct)
     }
 
     #[test]

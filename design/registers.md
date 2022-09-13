@@ -24,7 +24,7 @@ pointers
 - si (source index)  
 - di (destination index)  
 - rp (return pointer)  
-- rop (return offset pointer)  
+- ro (return offset)  
   
 special purpose  
 - pc  
@@ -54,6 +54,14 @@ contains
 - test (4)  
 - dseg active (5)  
 - privilege (6 and 7)  
+- mode32 (bc32 only) (8)  
+
+### privilege levels
+
+- 0: system mode
+- 1: reserved
+- 2: user mode
+- 3: reserved
   
   
 # register encoding  

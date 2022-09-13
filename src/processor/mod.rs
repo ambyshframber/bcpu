@@ -2,49 +2,65 @@ use super::memory::MemoryMap;
 use crate::utils::*;
 use consts::*;
 use regval::RegVal;
-use std::mem::size_of;
 
 mod consts;
 mod regval;
 #[cfg(test)]
 mod tests;
 
-const POINTERS_LEN: usize = 4 * size_of::<u32>() + 1;
-const SEGMENTS_LEN: usize = 4;
-const SPECIAL_LEN: usize = 4 * size_of::<u32>();
-
 #[derive(Default)]
-pub struct Registers {
+pub struct Processor {
     xa: u32, xb: u32, xc: u32, xd: u32,
-    xsp: u32, xbp: u32, xsi: u32, xdi: u32, xrp: u32,
-    segments: [u8; SEGMENTS_LEN],
-    special: [u8; SPECIAL_LEN],
+    xsp: u32, xbp: u32, xsi: u32, xdi: u32, xrp: u32, ro: u16,
+    co: u16, do_: u16, eo: u16, so: u16,
+    xidtp: u32, xidtl: u32, xpc: u32, xflags: u32,
 }
-impl Registers {
+impl Processor {
     fn read(&self, regid: u8) -> Result<RegVal> {
-        if (0..0x10).contains(&regid) {
-            let v = match regid & !0b11 {
-                0 => self.xa,
-                4 => self.xb,
-                8 => self.xc,
-                0xc => self.xd,
-                _ => unreachable!(),
-            };
-            Ok(RegVal::from_u32(v, regid & 0b11))
-        }
-        else if (0x10..0x1a).contains(&regid) { // all pointers except rop
-            let v = match regid & !1 {
-                0 => self.xsp,
-                2 => self.xbp,
-                4 => self.xsi,
-                6 => self.xdi,
-                8 => self.xrp,
-                _ => unreachable!(),
-            };
-            Ok(RegVal::from_u32(v, !regid & 1))
+        if self.can_access(regid) {
+            match regid {
+                0..0x10 => {
+                    let v = match regid & GPR_MASK {
+                        0 => self.xa,
+                        4 => self.xb,
+                        8 => self.xc,
+                        0xc => self.xd,
+                        _ => unreachable!(),
+                    };
+                    Ok(RegVal::from_u32(v, regid & GPR_SEL_MASK)) 
+                }
+                0x10..0x1a => {
+                    let v = match regid & PTR_MASK {
+                        0 => self.xsp,
+                        2 => self.xbp,
+                        4 => self.xsi,
+                        6 => self.xdi,
+                        8 => self.xrp,
+                        _ => unreachable!(),
+                    };
+                    Ok(RegVal::from_u32(v, regid & PTR_SEL_MASK))
+                }
+                0x1a => Ok(self.ro.into()),
+                0x20 => Ok(self.co.into()),
+                0x21 => Ok(self.do_.into()),
+                0x22 => Ok(self.eo.into()),
+                0x23 => Ok(self.so.into()),
+                0x28..0x30 => {
+                    let v = match regid & SPEC_MASK {
+                        0 => self.xidtp,
+                        2 => self.xidtl,
+                        4 => self.xpc,
+                        6 => self.xflags,
+                        _ => unreachable!(),
+                    };
+                    Ok(RegVal::from_u32(v, regid & SPEC_SEL_MASK))
+                }
+                
+                _ => Err(Exception::InvalidOperation)
+            }
         }
         else {
-            todo!()
+            Err(Exception::IllegalOperation)
         }
     }
     fn read_16(&self, regid: u8) -> Result<u16> {
@@ -53,40 +69,86 @@ impl Registers {
             .flatten()
     }
     fn write(&mut self, regid: u8, val: RegVal) -> Result<()> {
-        if (0..0x10).contains(&regid) {
+        if self.can_access(regid) {
             let in_val = val.to_u32();
-            let sel = regid & 0b11;
-            match regid & !0b11 {
-                0 => self.xa = mix_u32(self.xa, in_val, sel),
-                4 => self.xb = mix_u32(self.xb, in_val, sel),
-                8 => self.xc = mix_u32(self.xc, in_val, sel),
-                0xc => self.xd = mix_u32(self.xd, in_val, sel),
-                _ => unreachable!(),
+            match regid {
+                0..0x10 => {
+                    let sel = regid & GPR_SEL_MASK;
+                    match regid & GPR_MASK {
+                        0 => self.xa = mix_u32(self.xa, in_val, sel),
+                        4 => self.xb = mix_u32(self.xb, in_val, sel),
+                        8 => self.xc = mix_u32(self.xc, in_val, sel),
+                        0xc => self.xd = mix_u32(self.xd, in_val, sel),
+                        _ => unreachable!(),
+                    }
+                    Ok(())
+                }
+                0x10..0x1a => { // all pointers except rop
+                    let sel = regid & PTR_SEL_MASK;
+                    match regid & PTR_MASK {
+                        0 => self.xsp = mix_u32(self.xsp, in_val, sel),
+                        2 => self.xbp = mix_u32(self.xbp, in_val, sel),
+                        4 => self.xsi = mix_u32(self.xsi, in_val, sel),
+                        6 => self.xdi = mix_u32(self.xdi, in_val, sel),
+                        8 => self.xrp = mix_u32(self.xrp, in_val, sel),
+                        _ => unreachable!(),
+                    };
+                    Ok(())
+                }
+                0x1a => { self.ro = in_val.half_split().0; Ok(()) }
+                0x20 => { self.co = in_val.half_split().0; Ok(()) }
+                0x21 => { self.do_ = in_val.half_split().0; Ok(()) }
+                0x22 => { self.eo = in_val.half_split().0; Ok(()) }
+                0x23 => { self.so = in_val.half_split().0; Ok(()) }
+                0x28..0x30 => {
+                    let sel = regid & SPEC_SEL_MASK;
+                    match regid & SPEC_MASK {
+                        0 => self.xidtp = mix_u32(self.xidtp, in_val, sel),
+                        2 => self.xidtl = mix_u32(self.xidtl, in_val, sel),
+                        4 => self.xpc = mix_u32(self.xpc, in_val, sel),
+                        6 => self.xflags = mix_u32(self.xflags, in_val, sel),
+                        _ => unreachable!(),
+                    };
+                    Ok(())
+                }
+    
+                _ => todo!()
             }
-            Ok(())
         }
         else {
-            todo!()
+            Err(Exception::IllegalOperation)
         }
     }
     fn size(&self, regid: u8) -> Result<RegSize> {
-        if (0..0x10).contains(&regid) {
-            let sel = regid & 0b11;
-            Ok(match sel {
-                0 => RegSize::Word,
-                1 => RegSize::Dword,
-                _ => RegSize::Byte,
-            })
+        match regid {
+            0..0x10 => {
+                let sel = regid & 0b11;
+                Ok(match sel {
+                    0 => RegSize::Word,
+                    1 => RegSize::Dword,
+                    _ => RegSize::Byte,
+                })
+            }
+            0x10..0x1a | 0x28..0x30 =>  {
+                Ok(match regid & 1 {
+                    0 => RegSize::Word,
+                    1 => RegSize::Dword,
+                    _ => unreachable!(),
+                })
+            }
+            0x1a => Ok(RegSize::Word),
+            0x20..0x24 => Ok(RegSize::Word),
+
+            _ => Err(Exception::InvalidOperation)
         }
-        else if (0x10..0x1a).contains(&regid) {
-            Ok(match regid & 1 {
-                0 => RegSize::Word,
-                1 => RegSize::Dword,
-                _ => unreachable!(),
-            })
-        }
-        else {
-            todo!()
+    }
+    fn can_access(&self, regid: u8) -> bool {
+        let privilege = (self.xflags & PRIV_MASK) >> 6;
+        match regid {
+            0x28..0x30 => {
+                true // provisional
+            }
+            _ => true
         }
     }
 }
@@ -96,15 +158,7 @@ enum RegSize {
     Dword,
 }
 
-pub struct Processor {
-    registers: Registers,
-}
 impl Processor {
-    pub fn new() -> Processor {
-        Processor {
-            registers: Registers::default()
-        }
-    }
     fn clock(&mut self, mem: &mut MemoryMap) {
         let instruction = self.get_instruction_byte(mem);
         let mut operands = Vec::new();
@@ -126,6 +180,9 @@ impl Processor {
                 
             }
             Err(e) => { // interrupt processor here
+                self.xrp = self.xpc;
+                self.ro = self.co;
+
                 
             }
         }
@@ -136,8 +193,8 @@ impl Processor {
             Err(Exception::InvalidOperation)
         }
         else {
-            let src_v = src.value(&self.registers)?;
-            let size = dest.size(&self.registers)?;
+            let src_v = src.value(self)?;
+            let size = dest.size(self)?;
             let src_final = if sign_ext {
                 src_v.sign_extend(size)
             }
@@ -146,7 +203,7 @@ impl Processor {
             }?;
 
             if !self.is_testing() {
-                dest.write_back(&mut self.registers, src_final)?;
+                dest.write_back(self, src_final)?;
             }
 
             Ok(())
@@ -154,33 +211,17 @@ impl Processor {
     }
 
     fn get_flat_pc(&self) -> u32 {
-        let pc = self.registers.read(Spec::PC as u8).unwrap().to_u32();
-        let co = self.registers.read(Offs::CO as u8).unwrap().to_u32() << 8;
-        pc + co
+        address(self.xpc.half_split().0, self.co)
     }
     fn increment_pc(&mut self) {
-        let pc = self
-            .registers
-            .read(Spec::PC as u8)
-            .unwrap()
-            .unwrap_u16()
-            .unwrap()
-            .wrapping_add(1);
-        self.registers.write(Spec::PC as u8, RegVal::Word(pc));
+        self.xpc = self.xpc.wrapping_add(1)
     }
     fn decrement_pc(&mut self) {
-        let pc = self
-            .registers
-            .read(Spec::PC as u8)
-            .unwrap()
-            .unwrap_u16()
-            .unwrap()
-            .wrapping_sub(1);
-        self.registers.write(Spec::PC as u8, RegVal::Word(pc));
+        self.xpc = self.xpc.wrapping_sub(1)
     }
 
     fn is_testing(&self) -> bool {
-        false // FIX THIS ASSHOLE
+        (self.xflags & TEST_MASK) != 0
     }
 
     fn get_instruction_byte(&mut self, mem: &mut MemoryMap) -> u8 {
@@ -219,19 +260,19 @@ impl Operand {
     fn is_const(&self) -> bool {
         matches!(self, Operand::Const(_))
     }
-    fn value(&self, registers: &Registers) -> Result<RegVal> {
+    fn value(&self, registers: &Processor) -> Result<RegVal> {
         match self {
             Operand::Const(c) => Ok(*c),
             Operand::Register(r) => registers.read(*r),
         }
     }
-    fn write_back(&self, registers: &mut Registers, val: RegVal) -> Result<()> {
+    fn write_back(&self, registers: &mut Processor, val: RegVal) -> Result<()> {
         match self {
             Operand::Register(r) => registers.write(*r, val),
             _ => Ok(()),
         }
     }
-    fn size(&self, registers: &Registers) -> Result<RegSize> {
+    fn size(&self, registers: &Processor) -> Result<RegSize> {
         match self {
             Self::Register(r) => registers.size(*r),
             Self::Const(c) => todo!(),
